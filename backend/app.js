@@ -20,6 +20,17 @@ app.use(
       map((s) => s.trim()).
       filter(Boolean);
 
+      const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wildcardToRegex = (pattern) => {
+        const escapedParts = pattern.split('*').map(escapeRegex);
+        return new RegExp(`^${escapedParts.join('.*')}$`);
+      };
+      const matchesAllowed = (allowedPattern, testOrigin) => {
+        if (allowedPattern === testOrigin) return true;
+        if (!allowedPattern.includes('*')) return false;
+        return wildcardToRegex(allowedPattern).test(testOrigin);
+      };
+
       const selfOrigins = [
       `http://localhost:${backendPort}`,
       `http://127.0.0.1:${backendPort}`];
@@ -29,7 +40,7 @@ app.use(
 
       if (!origin) return callback(null, true);
 
-      if (allowed.includes(origin)) return callback(null, true);
+      if (allowed.some((entry) => matchesAllowed(entry, origin))) return callback(null, true);
       return callback(
         new Error(
           `Not allowed by CORS (origin: ${origin}). Allowed: ${allowed.join(', ')}`
