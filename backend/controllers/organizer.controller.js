@@ -14,9 +14,9 @@ exports.getDashboard = async (req, res) => {
 
 
     const completedEvents = events.filter((e) => e.status === 'Completed');
-    const totalRegistrations = completedEvents.reduce((sum, e) => sum + e.totalRegistrations, 0);
-    const totalRevenue = completedEvents.reduce((sum, e) => sum + e.totalRevenue, 0);
-    const totalAttendance = completedEvents.reduce((sum, e) => sum + e.totalAttendance, 0);
+    const totalRegistrations = events.reduce((sum, e) => sum + (Number(e.totalRegistrations) || 0), 0);
+    const totalRevenue = events.reduce((sum, e) => sum + (Number(e.totalRevenue) || 0), 0);
+    const totalAttendance = events.reduce((sum, e) => sum + (Number(e.totalAttendance) || 0), 0);
 
     res.json({
       success: true,
@@ -228,7 +228,7 @@ exports.scanQRAndMarkAttendance = async (req, res) => {
     await registration.save();
 
 
-    event.totalAttendance += 1;
+    event.totalAttendance = (Number(event.totalAttendance) || 0) + 1;
     await event.save();
 
     res.json({

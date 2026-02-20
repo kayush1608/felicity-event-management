@@ -343,8 +343,8 @@ exports.registerForEvent = async (req, res) => {
     });
 
 
-    event.totalRegistrations += 1;
-    event.totalRevenue += amountPaid;
+    event.totalRegistrations = (Number(event.totalRegistrations) || 0) + 1;
+    event.totalRevenue = (Number(event.totalRevenue) || 0) + amountPaid;
 
 
     if (event.eventType === 'Merchandise') {
