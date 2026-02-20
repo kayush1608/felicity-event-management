@@ -83,8 +83,19 @@ function EventManagement() {
 
     setScanning(true);
     try {
+      let scannedTicketId = qrCode.trim();
+      if (scannedTicketId.startsWith('{') && scannedTicketId.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(scannedTicketId);
+          if (parsed && typeof parsed === 'object' && parsed.ticketId) {
+            scannedTicketId = String(parsed.ticketId);
+          }
+        } catch (err) {
+        }
+      }
+
       const res = await axios.post('/api/organizer/attendance/scan', {
-        ticketId: qrCode.trim(),
+        ticketId: scannedTicketId,
         eventId
       });
       toast.success(res.data.message);
@@ -228,7 +239,7 @@ function EventManagement() {
               type="text"
               value={qrCode}
               onChange={(e) => setQrCode(e.target.value)}
-              placeholder="Enter ticket ID"
+              placeholder="Enter ticket ID or paste QR payload"
               style={{ flex: 1 }} />
 
               <button type="submit" className="btn btn-primary" disabled={scanning}>

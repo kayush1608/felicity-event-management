@@ -165,7 +165,28 @@ exports.updateRegistrationStatus = async (req, res) => {
 
 exports.scanQRAndMarkAttendance = async (req, res) => {
   try {
-    const { ticketId, eventId } = req.body;
+    let { ticketId, eventId } = req.body;
+
+    if (typeof ticketId === 'string') {
+      const trimmed = ticketId.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed === 'object') {
+            if (!eventId && parsed.eventId) eventId = parsed.eventId;
+            if (parsed.ticketId) ticketId = parsed.ticketId;
+          }
+        } catch (e) {
+        }
+      }
+    }
+
+    if (!ticketId || !eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ticketId and eventId are required'
+      });
+    }
 
     const event = await Event.findById(eventId);
 
