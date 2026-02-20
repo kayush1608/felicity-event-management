@@ -2,7 +2,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const { _getBrevoConfig, _sendBrevoEmail } = require('../utils/emailService');
+const { _getSmtpConfig, _getTransporter, _sendSmtpEmail } = require('../utils/emailService');
 
 const usage = () => {
   console.log('Usage:');
@@ -24,19 +24,25 @@ async function main() {
     process.exit(1);
   }
 
-  const cfg = _getBrevoConfig();
-  console.log('Brevo config (masked):');
-  console.log(`- BREVO_API_KEY: ${mask(cfg.apiKey)}`);
-  console.log(`- BREVO_SENDER_EMAIL: ${cfg.senderEmail || '(missing)'}`);
-  console.log(`- BREVO_SENDER_NAME: ${cfg.senderName || '(missing)'}`);
-  console.log(`- BREVO_REPLY_TO_EMAIL: ${cfg.replyToEmail || '(optional)'}`);
+  const cfg = _getSmtpConfig();
+  console.log('SMTP config (masked):');
+  console.log(`- EMAIL_HOST: ${cfg.host || '(missing)'}`);
+  console.log(`- EMAIL_PORT: ${cfg.port || '(missing)'}`);
+  console.log(`- EMAIL_USER: ${cfg.user || '(missing)'}`);
+  console.log(`- EMAIL_PASSWORD: ${mask(cfg.pass)}`);
+  console.log(`- EMAIL_SECURE: ${String(cfg.secure)}`);
+
+  const transporter = _getTransporter();
+  console.log('Verifying SMTP connection...');
+  await transporter.verify();
+  console.log('✅ SMTP verified');
 
   console.log(`Sending test email to ${to}...`);
-  const result = await _sendBrevoEmail({
+  const result = await _sendSmtpEmail({
     toEmail: to,
     subject: 'Felicity EMS - Test Email',
-    htmlContent: '<p>If you received this, Brevo API is configured correctly.</p>',
-    textContent: 'If you received this, Brevo API is configured correctly.'
+    html: '<p>If you received this, SMTP is configured correctly.</p>',
+    text: 'If you received this, SMTP is configured correctly.'
   });
 
   console.log('✅ Sent. Response:', result);
