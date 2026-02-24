@@ -92,7 +92,7 @@ function EventManagement() {
     try {
       const res = await axios.get(`/api/forum/events/${eventId}/messages`);
       setForumMessages(res.data.messages || []);
-    } catch (_) {}
+    } catch (_) { }
   }, [eventId]);
 
   const handleForumPost = async (e) => {
@@ -162,6 +162,25 @@ function EventManagement() {
     };
   }, [activeTab, fetchForumMessages]);
 
+  const processScannedCode = useCallback(async (rawValue) => {
+    if (!rawValue || !rawValue.trim()) return;
+    setScanning(true);
+    let ticketId = rawValue.trim();
+    try {
+      const parsed = JSON.parse(ticketId);
+      if (parsed && parsed.ticketId) ticketId = String(parsed.ticketId);
+    } catch (_) { }
+    try {
+      const res = await axios.post('/api/organizer/attendance/scan', { ticketId, eventId });
+      toast.success(res.data.message);
+      fetchEventData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error scanning QR code');
+    } finally {
+      setScanning(false);
+    }
+  }, [eventId, fetchEventData]);
+
   useEffect(() => {
     if (cameraActive && videoRef.current) {
       const qrScanner = new QrScanner(
@@ -190,26 +209,7 @@ function EventManagement() {
         scannerRef.current = null;
       }
     };
-  }, [cameraActive]);
-
-  const processScannedCode = async (rawValue) => {
-    if (!rawValue || !rawValue.trim()) return;
-    setScanning(true);
-    let ticketId = rawValue.trim();
-    try {
-      const parsed = JSON.parse(ticketId);
-      if (parsed && parsed.ticketId) ticketId = String(parsed.ticketId);
-    } catch (_) {}
-    try {
-      const res = await axios.post('/api/organizer/attendance/scan', { ticketId, eventId });
-      toast.success(res.data.message);
-      fetchEventData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error scanning QR code');
-    } finally {
-      setScanning(false);
-    }
-  };
+  }, [cameraActive, processScannedCode]);
 
   const handleScanQR = async (e) => {
     e.preventDefault();
@@ -281,8 +281,8 @@ function EventManagement() {
 
   const visibleParticipants =
     filter === 'attended' ? participants.filter((p) => p.attended) :
-    filter === 'notAttended' ? participants.filter((p) => !p.attended) :
-    participants;
+      filter === 'notAttended' ? participants.filter((p) => !p.attended) :
+        participants;
 
   return (
     <div className="container">
