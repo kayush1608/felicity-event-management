@@ -82,14 +82,6 @@ app.use('/api/events', eventRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/forum', forumRoutes);
 
-app.get('/api', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Felicity Event Management API',
-    version: '1.0.0'
-  });
-});
-
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
