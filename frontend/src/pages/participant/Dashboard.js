@@ -98,6 +98,7 @@ function Dashboard() {
                 <p style={{ fontSize: '14px', color: '#6c757d', marginBottom: '10px' }}>
                   {reg.event.eventDescription?.substring(0, 100)}...
                 </p>
+                <p><strong>Organizer:</strong> {reg.organizer?.organizerName || reg.event?.organizerId?.organizerName || '—'}</p>
                 <p><strong>Type:</strong> {reg.event.eventType}</p>
                 <p><strong>Date:</strong> {new Date(reg.event.eventStartDate).toLocaleDateString()}</p>
                 <p>

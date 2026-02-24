@@ -204,14 +204,7 @@ function CreateEvent() {
         delete data.problemStatement;
       }
 
-      if (formData.eventType !== 'Normal') {
-
-        delete data.customFormFields;
-      }
-
-
-      if (formData.eventType === 'Normal') {
-        data.customFormFields = (customFormFields || []).map((f, idx) => {
+      data.customFormFields = (customFormFields || []).map((f, idx) => {
           const options = Array.isArray(f.options) ?
           f.options :
           parseCommaList(f.options);
@@ -224,7 +217,6 @@ function CreateEvent() {
             order: idx + 1
           };
         }).filter((f) => f.fieldName);
-      }
 
       if (formData.eventType === 'Merchandise') {
         data.purchaseLimit = Number(formData.purchaseLimit || 1);
@@ -464,7 +456,6 @@ function CreateEvent() {
         }
 
         
-        {formData.eventType === 'Normal' &&
         <>
             <h2 style={{ marginTop: '30px', marginBottom: '10px' }}>Custom Registration Form (Optional)</h2>
             <p style={{ color: '#6c757d', marginTop: 0 }}>
@@ -560,7 +551,6 @@ function CreateEvent() {
             }
             </div>
           </>
-        }
 
         
         {formData.eventType === 'Hackathon' &&

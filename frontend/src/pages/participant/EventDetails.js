@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const sortFields = (fields) => {
   const arr = Array.isArray(fields) ? [...fields] : [];
@@ -12,6 +13,7 @@ function EventDetails() {
   const params = useParams();
   const eventId = params.eventId || params.id;
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
@@ -27,6 +29,9 @@ function EventDetails() {
   const [creatingTeam, setCreatingTeam] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [joiningTeam, setJoiningTeam] = useState(false);
+  const [myTeam, setMyTeam] = useState(null);
+  const [showInviteCode, setShowInviteCode] = useState(null); // holds invite code string
+  const [acceptingMember, setAcceptingMember] = useState(null); // memberId being accepted
 
 
   const [showFeedback, setShowFeedback] = useState(false);
@@ -38,6 +43,8 @@ function EventDetails() {
   const [replyTo, setReplyTo] = useState(null);
   const [postingMessage, setPostingMessage] = useState(false);
   const pollRef = useRef(null);
+  const prevMsgCountRef = useRef(0);
+  const [newMsgAlert, setNewMsgAlert] = useState(false);
 
   const fetchEvent = useCallback(async () => {
     try {
@@ -59,11 +66,24 @@ function EventDetails() {
           quantity: prev.quantity || 1
         }));
       }
+      // Fetch team data for hackathon events
+      if (ev?.eventType === 'Hackathon') {
+        fetchMyTeam();
+      }
     } catch (error) {
       toast.error('Error loading event');
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  }, [eventId]);
+
+  const fetchMyTeam = useCallback(async () => {
+    try {
+      const res = await axios.get(`/api/teams/event/${eventId}/my-team`);
+      setMyTeam(res.data.data || null);
+    } catch (err) {
+      console.error('Fetch my team error:', err);
     }
   }, [eventId]);
 
@@ -165,7 +185,15 @@ function EventDetails() {
   const fetchForumMessages = useCallback(async () => {
     try {
       const res = await axios.get(`/api/forum/events/${eventId}/messages`);
-      setForumMessages(res.data.messages || []);
+      const msgs = res.data.messages || [];
+      // Count total messages including replies
+      const totalCount = msgs.reduce((sum, m) => sum + 1 + (m.replies?.length || 0), 0);
+      if (prevMsgCountRef.current > 0 && totalCount > prevMsgCountRef.current) {
+        setNewMsgAlert(true);
+        toast.info(`${totalCount - prevMsgCountRef.current} new message(s) in discussion`, { autoClose: 3000 });
+      }
+      prevMsgCountRef.current = totalCount;
+      setForumMessages(msgs);
     } catch (err) {
       console.error('Forum fetch error:', err);
     }
@@ -313,11 +341,11 @@ function EventDetails() {
         }
 
         
-        {canRegister &&
+        {canRegister && event.eventType !== 'Hackathon' &&
         <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', marginBottom: '20px' }}>
             <h3>Register for this Event</h3>
 
-            {event.eventType === 'Normal' && customFields.length > 0 &&
+            {customFields.length > 0 &&
           <div style={{ marginTop: '15px' }}>
                 <h4 style={{ marginBottom: '10px' }}>Registration Form</h4>
                 {customFields.map((field) => {
@@ -462,6 +490,7 @@ function EventDetails() {
               </div>
           }
 
+            {event.eventType !== 'Hackathon' &&
             <button
             className="btn btn-primary"
             style={{ marginTop: '15px' }}
@@ -470,9 +499,101 @@ function EventDetails() {
 
               {registering ? 'Registering...' : 'Register Now'}
             </button>
-            {event.eventType === 'Hackathon' && (
-              <div style={{ marginTop: 18, paddingTop: 12, borderTop: '1px solid #e9ecef' }}>
-                <h4 style={{ marginBottom: 10 }}>Team Options</h4>
+            }
+          </div>
+        }
+
+        {/* Hackathon team section — always visible for hackathon events, regardless of registration status */}
+        {event.eventType === 'Hackathon' && (
+          <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', marginBottom: '20px' }}>
+            <h3>Team Options</h3>
+
+            {/* Invite Code Modal/Banner after creation */}
+            {showInviteCode && (
+              <div style={{ padding: '16px', backgroundColor: '#d4edda', borderRadius: '8px', marginBottom: '16px', border: '2px solid #28a745' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#155724' }}>Team Created Successfully!</h4>
+                <p style={{ margin: '0 0 8px 0', color: '#155724' }}>Share this invite code with your teammates:</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <code style={{ fontSize: '20px', fontWeight: 'bold', padding: '8px 16px', backgroundColor: '#fff', borderRadius: '6px', border: '1px solid #28a745', letterSpacing: '2px', userSelect: 'all' }}>{showInviteCode}</code>
+                  <button className="btn btn-outline-success btn-sm" onClick={() => { navigator.clipboard.writeText(showInviteCode); toast.success('Invite code copied!'); }}>Copy</button>
+                </div>
+                <button className="btn btn-sm" style={{ marginTop: '10px', color: '#6c757d' }} onClick={() => setShowInviteCode(null)}>Dismiss</button>
+              </div>
+            )}
+
+            {/* Show existing team info */}
+            {myTeam ? (
+              <div style={{ padding: '16px', backgroundColor: '#e7f3ff', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4 style={{ margin: 0, color: '#004085' }}>Your Team: {myTeam.teamName}</h4>
+                  <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', backgroundColor: myTeam.isComplete ? '#d4edda' : '#fff3cd', color: myTeam.isComplete ? '#155724' : '#856404' }}>
+                    {myTeam.isComplete ? 'Complete' : 'Forming'}
+                  </span>
+                </div>
+
+                {/* Invite code always visible for team leader */}
+                {!myTeam.isComplete && (myTeam.teamLeaderId?._id?.toString() === authUser?._id?.toString() || myTeam.teamLeaderId?._id?.toString() === authUser?.id?.toString()) && (
+                  <div style={{ padding: '10px', backgroundColor: '#fff', borderRadius: '6px', marginBottom: '12px', border: '1px dashed #007bff' }}>
+                    <small style={{ color: '#6c757d' }}>Invite Code (share with teammates):</small>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                      <code style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '2px', userSelect: 'all' }}>{myTeam.inviteCode}</code>
+                      <button className="btn btn-outline-primary btn-sm" onClick={() => { navigator.clipboard.writeText(myTeam.inviteCode); toast.success('Invite code copied!'); }}>Copy</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Members list */}
+                <div style={{ marginTop: '8px' }}>
+                  <strong style={{ fontSize: '14px' }}>Members ({myTeam.members?.filter(m => m.status === 'Accepted').length || 0} / {myTeam.teamSize} required):</strong>
+                  <div style={{ marginTop: '6px' }}>
+                    {/* Leader */}
+                    <div style={{ padding: '6px 10px', backgroundColor: '#fff', borderRadius: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{myTeam.teamLeaderId?.firstName || myTeam.teamLeaderId?.name || myTeam.teamLeaderId?.email || 'Leader'} <span style={{ color: '#007bff', fontSize: '11px', fontWeight: 'bold' }}>LEADER</span></span>
+                      <span style={{ color: '#28a745', fontSize: '12px' }}>Accepted</span>
+                    </div>
+                    {/* Other members */}
+                    {myTeam.members?.filter(m => m.userId?._id !== myTeam.teamLeaderId?._id).map((m) => {
+                      const memberName = m.userId?.firstName || m.userId?.name || m.userId?.email || 'Member';
+                      const isLeader = myTeam.teamLeaderId?._id?.toString() === authUser?._id?.toString() || myTeam.teamLeaderId?._id?.toString() === authUser?.id?.toString();
+                      return (
+                        <div key={m._id} style={{ padding: '6px 10px', backgroundColor: '#fff', borderRadius: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{memberName}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', color: m.status === 'Accepted' ? '#28a745' : m.status === 'Pending' ? '#ffc107' : '#6c757d' }}>{m.status}</span>
+                            {isLeader && m.status === 'Pending' && (
+                              <button
+                                className="btn btn-sm btn-outline-success"
+                                disabled={acceptingMember === m._id}
+                                onClick={async () => {
+                                  setAcceptingMember(m._id);
+                                  try {
+                                    await axios.post(`/api/teams/${myTeam._id}/accept/${m._id}`);
+                                    toast.success(`${memberName} accepted!`);
+                                    fetchMyTeam();
+                                    fetchEvent();
+                                  } catch (err) {
+                                    toast.error(err.response?.data?.message || 'Error accepting member');
+                                  } finally { setAcceptingMember(null); }
+                                }}>
+                                {acceptingMember === m._id ? '...' : 'Accept'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {myTeam.isComplete && (
+                  <div style={{ marginTop: '12px', padding: '10px', backgroundColor: '#d4edda', borderRadius: '6px' }}>
+                    <p style={{ margin: 0, color: '#155724', fontWeight: 'bold' }}>✓ Team is complete! All members have been registered and QR tickets sent via email.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* No team yet — show Create / Join options */
+              <>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                   <input
                     type="text"
@@ -487,9 +608,11 @@ function EventDetails() {
                       setCreatingTeam(true);
                       try {
                         const res = await axios.post('/api/teams', { teamName, eventId });
-                        toast.success('Team created — invite code: ' + (res.data.data?.inviteCode || ''));
+                        const code = res.data.data?.inviteCode || '';
+                        setShowInviteCode(code);
+                        toast.success('Team created!');
                         setTeamName('');
-                        fetchEvent();
+                        fetchMyTeam();
                       } catch (err) {
                         toast.error(err.response?.data?.message || 'Error creating team');
                       } finally { setCreatingTeam(false); }
@@ -512,9 +635,9 @@ function EventDetails() {
                       setJoiningTeam(true);
                       try {
                         await axios.post('/api/teams/join', { inviteCode: inviteCodeInput.trim() });
-                        toast.success('Join request sent');
+                        toast.success('Join request sent!');
                         setInviteCodeInput('');
-                        fetchEvent();
+                        fetchMyTeam();
                       } catch (err) {
                         toast.error(err.response?.data?.message || 'Error joining team');
                       } finally { setJoiningTeam(false); }
@@ -522,10 +645,10 @@ function EventDetails() {
                     {joiningTeam ? 'Joining...' : 'Join Team'}
                   </button>
                 </div>
-              </div>
+              </>
             )}
           </div>
-        }
+        )}
 
         
         {!canRegister && !isRegistered &&
@@ -595,7 +718,16 @@ function EventDetails() {
 
         {isRegistered &&
         <div style={{ marginTop: '30px' }}>
-            <h2 style={{ marginBottom: '15px' }}>Discussion Forum</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+              <h2 style={{ margin: 0 }}>Discussion Forum</h2>
+              {newMsgAlert && (
+                <span
+                  onClick={() => setNewMsgAlert(false)}
+                  style={{ cursor: 'pointer', padding: '2px 10px', backgroundColor: '#007bff', color: '#fff', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                  New messages!
+                </span>
+              )}
+            </div>
             <div style={{ marginBottom: '15px' }}>
               {replyTo && (
                 <div style={{ padding: '6px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -646,9 +778,11 @@ function EventDetails() {
                       <button onClick={() => setReplyTo(msg._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#007bff' }}>
                         Reply
                       </button>
-                      <button onClick={() => handleDeleteMessage(msg._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
-                        Delete
-                      </button>
+                      {(msg.userId?._id === authUser?._id || msg.userId?._id === authUser?.id) && (
+                        <button onClick={() => handleDeleteMessage(msg._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
+                          Delete
+                        </button>
+                      )}
                     </div>
 
                     {msg.replies && msg.replies.length > 0 && (
@@ -667,9 +801,11 @@ function EventDetails() {
                               <button onClick={() => handleReact(reply._id, '👍')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px' }}>
                                 👍 {reply.reactions?.filter((r) => r.emoji === '👍').length || 0}
                               </button>
-                              <button onClick={() => handleDeleteMessage(reply._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
-                                Delete
-                              </button>
+                              {(reply.userId?._id === authUser?._id || reply.userId?._id === authUser?.id) && (
+                                <button onClick={() => handleDeleteMessage(reply._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
+                                  Delete
+                                </button>
+                              )}
                             </div>
                           </div>
                         ))}

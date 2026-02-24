@@ -62,6 +62,9 @@ const userSchema = new mongoose.Schema({
   contactEmail: {
     type: String
   },
+  organizerContactNumber: {
+    type: String
+  },
   discordWebhook: {
     type: String
   },

@@ -386,7 +386,7 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const allowedFields = ['organizerName', 'category', 'description', 'contactEmail', 'discordWebhook'];
+    const allowedFields = ['organizerName', 'category', 'description', 'contactEmail', 'organizerContactNumber', 'discordWebhook'];
     const updates = {};
 
     allowedFields.forEach((field) => {

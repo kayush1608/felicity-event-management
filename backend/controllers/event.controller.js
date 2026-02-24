@@ -347,16 +347,44 @@ exports.updateEvent = async (req, res) => {
       Object.assign(event, payload);
     } else if (event.status === 'Published') {
 
-      const allowedFields = ['eventDescription', 'registrationDeadline', 'registrationLimit'];
-      allowedFields.forEach((field) => {
-        if (payload[field] !== undefined) {
-          event[field] = payload[field];
+      // Enforce extend-only for deadline
+      if (payload.registrationDeadline !== undefined) {
+        const newDeadline = new Date(payload.registrationDeadline);
+        const oldDeadline = event.registrationDeadline ? new Date(event.registrationDeadline) : null;
+        if (oldDeadline && newDeadline < oldDeadline) {
+          return res.status(400).json({
+            success: false,
+            message: 'Registration deadline can only be extended (not moved earlier) for published events'
+          });
         }
-      });
+        event.registrationDeadline = payload.registrationDeadline;
+      }
+
+      // Enforce increase-only for registration limit
+      if (payload.registrationLimit !== undefined) {
+        const newLimit = Number(payload.registrationLimit);
+        const oldLimit = Number(event.registrationLimit) || 0;
+        if (oldLimit > 0 && newLimit < oldLimit) {
+          return res.status(400).json({
+            success: false,
+            message: 'Registration limit can only be increased (not decreased) for published events'
+          });
+        }
+        event.registrationLimit = payload.registrationLimit;
+      }
+
+      // Allow description edits freely
+      if (payload.eventDescription !== undefined) {
+        event.eventDescription = payload.eventDescription;
+      }
 
 
       if (!event.formLocked && payload.customFormFields !== undefined) {
         event.customFormFields = payload.customFormFields;
+      }
+
+      if (payload.status === 'Closed') {
+        event.status = 'Closed';
       }
     } else if (event.status === 'Ongoing' || event.status === 'Completed') {
 

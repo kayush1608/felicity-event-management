@@ -9,6 +9,7 @@ router.use(authorize('participant'));
 router.post('/', teamCtrl.createTeam);
 router.post('/join', teamCtrl.joinByInvite);
 router.post('/:teamId/accept/:memberId', teamCtrl.acceptMember);
+router.get('/event/:eventId/my-team', teamCtrl.getMyTeamForEvent);
 router.get('/:id', teamCtrl.getTeam);
 
 module.exports = router;

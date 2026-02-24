@@ -36,6 +36,7 @@ function EventManagement() {
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [qrCode, setQrCode] = useState('');
   const [scanning, setScanning] = useState(false);
   const [activeTab, setActiveTab] = useState('participants');
@@ -272,6 +273,17 @@ function EventManagement() {
     }
   };
 
+  const handleCloseEvent = async () => {
+    if (!window.confirm('Close this event? Registrations will no longer be accepted.')) return;
+    try {
+      await axios.put(`/api/events/${eventId}`, { status: 'Closed' });
+      toast.success('Event closed successfully');
+      fetchEventData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error closing event');
+    }
+  };
+
   if (loading) return <div className="loading">Loading event data...</div>;
   if (!event) return <div className="container"><p>Event not found</p></div>;
 
@@ -279,10 +291,22 @@ function EventManagement() {
     ? (participants.filter((p) => p.attended).length / participants.length * 100).toFixed(1)
     : 0;
 
-  const visibleParticipants =
-    filter === 'attended' ? participants.filter((p) => p.attended) :
-      filter === 'notAttended' ? participants.filter((p) => !p.attended) :
-        participants;
+  const visibleParticipants = (() => {
+    let filtered =
+      filter === 'attended' ? participants.filter((p) => p.attended) :
+        filter === 'notAttended' ? participants.filter((p) => !p.attended) :
+          participants;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter((p) => {
+        const name = `${p.participantId?.firstName || ''} ${p.participantId?.lastName || ''}`.toLowerCase();
+        const email = (p.participantId?.email || '').toLowerCase();
+        const ticketId = (p.ticketId || '').toLowerCase();
+        return name.includes(q) || email.includes(q) || ticketId.includes(q);
+      });
+    }
+    return filtered;
+  })();
 
   return (
     <div className="container">
@@ -292,6 +316,11 @@ function EventManagement() {
           {event.status === 'Draft' &&
             <button className="btn btn-primary" onClick={handlePublishEvent} style={{ marginRight: '10px' }}>
               Publish Event
+            </button>
+          }
+          {(event.status === 'Published' || event.status === 'Ongoing') &&
+            <button className="btn btn-danger" onClick={handleCloseEvent} style={{ marginRight: '10px' }}>
+              Close Event
             </button>
           }
           <button className="btn btn-secondary" onClick={() => navigate('/ongoing-events')}>
@@ -408,6 +437,13 @@ function EventManagement() {
           </div>
 
           <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, email, or ticket ID..."
+              style={{ flex: '1 1 250px', minWidth: '200px' }}
+            />
             <button
               className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setFilter('all')}>

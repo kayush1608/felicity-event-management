@@ -16,6 +16,7 @@ function Profile() {
     category: 'Technical',
     description: '',
     contactEmail: '',
+    organizerContactNumber: '',
     discordWebhook: ''
   });
 
@@ -41,6 +42,7 @@ function Profile() {
         category: user.category || 'Technical',
         description: user.description || '',
         contactEmail: user.contactEmail || user.email || '',
+        organizerContactNumber: user.organizerContactNumber || '',
         discordWebhook: user.discordWebhook || ''
       });
     } catch (error) {
@@ -60,6 +62,7 @@ function Profile() {
         category: formData.category,
         description: formData.description,
         contactEmail: formData.contactEmail,
+        organizerContactNumber: formData.organizerContactNumber,
         discordWebhook: formData.discordWebhook
       };
       await axios.put('/api/organizer/profile', payload);
@@ -145,6 +148,7 @@ function Profile() {
               <div>
                 <p><strong>Login Email:</strong> {profile.email}</p>
                 <p><strong>Contact Email:</strong> {profile.contactEmail || '—'}</p>
+                <p><strong>Contact Number:</strong> {profile.organizerContactNumber || '—'}</p>
               </div>
               <div>
                 <p><strong>Status:</strong> {profile.isActive ? 'Active' : 'Inactive'}</p>
@@ -199,6 +203,16 @@ function Profile() {
             </div>
 
             <div className="form-group">
+              <label>Contact Number</label>
+              <input
+              type="tel"
+              value={formData.organizerContactNumber}
+              onChange={(e) => setFormData({ ...formData, organizerContactNumber: e.target.value })}
+              placeholder="+91 9876543210" />
+
+            </div>
+
+            <div className="form-group">
               <label>Description</label>
               <textarea
               rows="4"
@@ -232,6 +246,7 @@ function Profile() {
                   category: profile.category || 'Technical',
                   description: profile.description || '',
                   contactEmail: profile.contactEmail || profile.email || '',
+                  organizerContactNumber: profile.organizerContactNumber || '',
                   discordWebhook: profile.discordWebhook || ''
                 });
               }}>
