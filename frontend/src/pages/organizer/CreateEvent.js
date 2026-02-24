@@ -186,7 +186,6 @@ function CreateEvent() {
             data.registrationDeadline = combined.toISOString();
           }
         } catch (e) {
-          // ignore and send date-only value
         }
       }
 

@@ -30,8 +30,8 @@ function EventDetails() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [joiningTeam, setJoiningTeam] = useState(false);
   const [myTeam, setMyTeam] = useState(null);
-  const [showInviteCode, setShowInviteCode] = useState(null); // holds invite code string
-  const [acceptingMember, setAcceptingMember] = useState(null); // memberId being accepted
+  const [showInviteCode, setShowInviteCode] = useState(null);
+  const [acceptingMember, setAcceptingMember] = useState(null);
 
 
   const [showFeedback, setShowFeedback] = useState(false);
@@ -66,7 +66,6 @@ function EventDetails() {
           quantity: prev.quantity || 1
         }));
       }
-      // Fetch team data for hackathon events
       if (ev?.eventType === 'Hackathon') {
         fetchMyTeam();
       }
@@ -186,7 +185,6 @@ function EventDetails() {
     try {
       const res = await axios.get(`/api/forum/events/${eventId}/messages`);
       const msgs = res.data.messages || [];
-      // Count total messages including replies
       const totalCount = msgs.reduce((sum, m) => sum + 1 + (m.replies?.length || 0), 0);
       if (prevMsgCountRef.current > 0 && totalCount > prevMsgCountRef.current) {
         setNewMsgAlert(true);

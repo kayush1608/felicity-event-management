@@ -347,7 +347,6 @@ exports.updateEvent = async (req, res) => {
       Object.assign(event, payload);
     } else if (event.status === 'Published') {
 
-      // Enforce extend-only for deadline
       if (payload.registrationDeadline !== undefined) {
         const newDeadline = new Date(payload.registrationDeadline);
         const oldDeadline = event.registrationDeadline ? new Date(event.registrationDeadline) : null;
@@ -360,7 +359,6 @@ exports.updateEvent = async (req, res) => {
         event.registrationDeadline = payload.registrationDeadline;
       }
 
-      // Enforce increase-only for registration limit
       if (payload.registrationLimit !== undefined) {
         const newLimit = Number(payload.registrationLimit);
         const oldLimit = Number(event.registrationLimit) || 0;
@@ -373,7 +371,6 @@ exports.updateEvent = async (req, res) => {
         event.registrationLimit = payload.registrationLimit;
       }
 
-      // Allow description edits freely
       if (payload.eventDescription !== undefined) {
         event.eventDescription = payload.eventDescription;
       }

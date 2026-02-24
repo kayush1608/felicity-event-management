@@ -14,7 +14,6 @@ exports.createTeam = async (req, res) => {
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
     if (!event.teamSize || !event.teamSize.min) return res.status(400).json({ success: false, message: 'Event does not support teams' });
 
-    // Prevent duplicate: user already leads or belongs to a team for this event
     const existingTeam = await Team.findOne({
       eventId: event._id,
       $or: [
@@ -55,7 +54,6 @@ exports.joinByInvite = async (req, res) => {
     const already = team.members.find((m) => m.userId?.toString() === req.user.id);
     if (already) return res.json({ success: true, message: 'Already invited/part of team', data: team });
 
-    // Prevent joining if user already belongs to another team for same event
     const existingTeam = await Team.findOne({
       eventId: team.eventId,
       _id: { $ne: team._id },
