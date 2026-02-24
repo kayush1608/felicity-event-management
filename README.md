@@ -59,10 +59,10 @@ A comprehensive event management system built with the MERN stack for managing c
 - **Password Reset Workflow**: Request management and approval
 
 #### 9. Deployment (5 Marks) ✅
-- Backend ready for deployment on Render/Railway/Fly/Heroku
-- Frontend ready for Vercel/Netlify
-- MongoDB Atlas integration
-- Environment variable configuration
+- **Frontend**: https://felicity-event-management-nine.vercel.app (Vercel)
+- **Backend API**: https://felicity-event-management-kwt3.onrender.com/api (Render)
+- MongoDB Atlas cloud database
+- Environment variable configuration via Render + Vercel dashboards
 
 ### Part 2: Advanced Features (30 Marks)
 
