@@ -1,0 +1,2 @@
+Frontend URL: https://felicity-event-management.vercel.app
+Backend API URL: https://felicity-event-management.vercel.app/api

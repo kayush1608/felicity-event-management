@@ -108,9 +108,25 @@ exports.getParticipantEvents = async (req, res) => {
     populate('organizerId', 'organizerName category description contactEmail').
     sort({ eventStartDate: 1 });
 
+    const user = followedClubs === 'true' ? null : await User.findById(req.user.id).select('interests followedClubs');
+    const interests = user?.interests || [];
+    const followed = user?.followedClubs?.map((id) => id.toString()) || [];
+
+    const scored = events.map((ev) => {
+      let score = 0;
+      const evTags = Array.isArray(ev.eventTags) ? ev.eventTags : [];
+      for (const tag of evTags) {
+        if (interests.some((i) => tag.toLowerCase().includes(i.toLowerCase()))) score += 2;
+      }
+      if (followed.includes(ev.organizerId?._id?.toString())) score += 1;
+      return { event: ev, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score || new Date(a.event.eventStartDate) - new Date(b.event.eventStartDate));
+
     res.json({
       success: true,
-      data: events
+      data: scored.map((s) => s.event)
     });
   } catch (error) {
     console.error('Participant events error:', error);
@@ -235,59 +251,6 @@ exports.registerForEvent = async (req, res) => {
     }
 
 
-    const quantity = Number(merchandiseDetails?.quantity || 1);
-    if (event.eventType === 'Merchandise') {
-      if (!Number.isFinite(quantity) || quantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid merchandise quantity'
-        });
-      }
-
-      const purchaseLimit = Number(event.purchaseLimit || 1);
-      if (Number.isFinite(purchaseLimit) && purchaseLimit > 0 && quantity > purchaseLimit) {
-        return res.status(400).json({
-          success: false,
-          message: `You can purchase at most ${purchaseLimit} item(s) per registration.`
-        });
-      }
-
-
-      const allowedSizes = Array.isArray(event.itemDetails?.sizes) ? event.itemDetails.sizes.filter(Boolean) : [];
-      const allowedColors = Array.isArray(event.itemDetails?.colors) ? event.itemDetails.colors.filter(Boolean) : [];
-      const allowedVariants = Array.isArray(event.itemDetails?.variants) ? event.itemDetails.variants.filter(Boolean) : [];
-
-      if (allowedSizes.length > 0) {
-        if (!merchandiseDetails.size || !allowedSizes.includes(merchandiseDetails.size)) {
-          return res.status(400).json({ success: false, message: 'Please select a valid size' });
-        }
-      }
-      if (allowedColors.length > 0) {
-        if (!merchandiseDetails.color || !allowedColors.includes(merchandiseDetails.color)) {
-          return res.status(400).json({ success: false, message: 'Please select a valid color' });
-        }
-      }
-      if (allowedVariants.length > 0) {
-        if (!merchandiseDetails.variant || !allowedVariants.includes(merchandiseDetails.variant)) {
-          return res.status(400).json({ success: false, message: 'Please select a valid variant' });
-        }
-      }
-
-      if (event.stockQuantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Out of stock'
-        });
-      }
-      if (event.stockQuantity < quantity) {
-        return res.status(400).json({
-          success: false,
-          message: 'Not enough stock available'
-        });
-      }
-    }
-
-
     const user = await User.findById(req.user.id);
     if (event.eligibility === 'IIIT Only' && user.participantType !== 'IIIT') {
       return res.status(403).json({
@@ -316,6 +279,20 @@ exports.registerForEvent = async (req, res) => {
     }
 
 
+    let quantity = 1;
+    if (event.eventType === 'Merchandise') {
+      quantity = parseInt(merchandiseDetails.quantity, 10) || 1;
+      if (quantity < 1) {
+        return res.status(400).json({ success: false, message: 'Quantity must be at least 1' });
+      }
+      if (event.purchaseLimit && quantity > event.purchaseLimit) {
+        return res.status(400).json({ success: false, message: `Maximum purchase limit is ${event.purchaseLimit} per person` });
+      }
+      if ((event.stockQuantity || 0) < quantity) {
+        return res.status(400).json({ success: false, message: 'Not enough stock available' });
+      }
+    }
+
     const ticketId = generateTicketId();
     const qrData = {
       ticketId,
@@ -335,7 +312,7 @@ exports.registerForEvent = async (req, res) => {
       registrationType: event.eventType,
       status: 'Approved',
       formResponses: formResponses || {},
-      merchandiseDetails: merchandiseDetails || {},
+      merchandiseDetails: event.eventType === 'Merchandise' ? merchandiseDetails : {},
       paymentStatus: 'Completed',
       amountPaid,
       ticketId,
@@ -346,11 +323,9 @@ exports.registerForEvent = async (req, res) => {
     event.totalRegistrations = (Number(event.totalRegistrations) || 0) + 1;
     event.totalRevenue = (Number(event.totalRevenue) || 0) + amountPaid;
 
-
     if (event.eventType === 'Merchandise') {
-      event.stockQuantity -= quantity;
+      event.stockQuantity = Math.max(0, (event.stockQuantity || 0) - quantity);
     }
-
 
     if (event.totalRegistrations === 1 && event.customFormFields.length > 0) {
       event.formLocked = true;

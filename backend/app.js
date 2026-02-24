@@ -7,6 +7,8 @@ const participantRoutes = require('./routes/participant.routes');
 const organizerRoutes = require('./routes/organizer.routes');
 const adminRoutes = require('./routes/admin.routes');
 const eventRoutes = require('./routes/event.routes');
+const teamRoutes = require('./routes/team.routes');
+const forumRoutes = require('./routes/forum.routes');
 
 const app = express();
 
@@ -77,6 +79,8 @@ app.use('/api/participant', participantRoutes);
 app.use('/api/organizer', organizerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/forum', forumRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });

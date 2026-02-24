@@ -3,6 +3,7 @@ const Event = require('../models/Event.model');
 const Registration = require('../models/Registration.model');
 const Feedback = require('../models/Feedback.model');
 const PasswordResetRequest = require('../models/PasswordResetRequest.model');
+const AuditLog = require('../models/AuditLog.model');
 
 
 
@@ -129,19 +130,11 @@ exports.updateRegistrationStatus = async (req, res) => {
 
     if (!wasApproved && status === 'Approved' && registration.registrationType === 'Merchandise') {
       registration.paymentStatus = 'Completed';
-
-
       const event = await Event.findById(registration.eventId);
-      if (event.stockQuantity > 0) {
-        event.stockQuantity -= registration.merchandiseDetails.quantity || 1;
+      if (event && event.stockQuantity > 0) {
+        event.stockQuantity -= registration.merchandiseDetails?.quantity || 1;
         await event.save();
       }
-
-
-      const User = require('../models/User.model');
-      const user = await User.findById(registration.participantId);
-      const { sendTicketEmail } = require('../utils/emailService');
-      await sendTicketEmail(user.email, event.eventName, registration.ticketId, registration.qrCode);
     }
 
     await registration.save();
@@ -309,6 +302,67 @@ exports.getAttendanceReport = async (req, res) => {
 
 
 
+
+exports.manualAttendanceOverride = async (req, res) => {
+  try {
+    const { registrationId, attended, reason } = req.body;
+    if (!registrationId) return res.status(400).json({ success: false, message: 'registrationId is required' });
+    if (!reason || !reason.trim()) return res.status(400).json({ success: false, message: 'Reason is required for manual override' });
+
+    const registration = await Registration.findById(registrationId).populate('eventId');
+    if (!registration) return res.status(404).json({ success: false, message: 'Registration not found' });
+
+    if (registration.eventId.organizerId.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const prev = registration.attended;
+    const next = !!attended;
+
+    if (prev === next) {
+      return res.status(400).json({ success: false, message: `Attendance is already ${next ? 'marked' : 'unmarked'}` });
+    }
+
+    registration.attended = next;
+    registration.attendanceTime = next ? new Date() : null;
+    await registration.save();
+
+    const event = await Event.findById(registration.eventId._id);
+    event.totalAttendance = Math.max(0, (Number(event.totalAttendance) || 0) + (next ? 1 : -1));
+    await event.save();
+
+    await AuditLog.create({
+      eventId: event._id,
+      registrationId: registration._id,
+      performedBy: req.user.id,
+      action: next ? 'MANUAL_MARK_ATTENDED' : 'MANUAL_UNMARK_ATTENDED',
+      reason: reason.trim(),
+      previousValue: { attended: prev },
+      newValue: { attended: next }
+    });
+
+    res.json({ success: true, message: `Attendance ${next ? 'marked' : 'unmarked'} via manual override` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error processing override', error: error.message });
+  }
+};
+
+exports.getAuditLogs = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (event.organizerId.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    const logs = await AuditLog.find({ eventId: req.params.eventId })
+      .populate('performedBy', 'organizerName email')
+      .sort({ timestamp: -1 })
+      .limit(200);
+
+    res.json({ success: true, logs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching audit logs', error: error.message });
+  }
+};
 
 exports.getProfile = async (req, res) => {
   try {

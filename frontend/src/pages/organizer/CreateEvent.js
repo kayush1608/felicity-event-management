@@ -46,6 +46,7 @@ function CreateEvent() {
     eligibility: 'All',
     maxParticipants: '',
     registrationDeadline: '',
+    registrationDeadlineTime: '',
     discordWebhook: '',
 
     price: '',
@@ -98,6 +99,7 @@ function CreateEvent() {
         eligibility: event.eligibility,
         maxParticipants: event.registrationLimit || '',
         registrationDeadline: event.registrationDeadline ? new Date(event.registrationDeadline).toISOString().split('T')[0] : '',
+        registrationDeadlineTime: event.registrationDeadline ? `${String(new Date(event.registrationDeadline).getHours()).padStart(2,'0')}:${String(new Date(event.registrationDeadline).getMinutes()).padStart(2,'0')}` : '',
         discordWebhook: event.discordWebhook || '',
         price: event.registrationFee || '',
         stock: event.stockQuantity || '',
@@ -176,6 +178,17 @@ function CreateEvent() {
 
     try {
       const data = { ...formData };
+
+      if (data.registrationDeadline && formData.registrationDeadlineTime) {
+        try {
+          const combined = new Date(`${data.registrationDeadline}T${formData.registrationDeadlineTime}`);
+          if (!Number.isNaN(combined.getTime())) {
+            data.registrationDeadline = combined.toISOString();
+          }
+        } catch (e) {
+          // ignore and send date-only value
+        }
+      }
 
 
       if (formData.eventType !== 'Merchandise') {
@@ -393,6 +406,20 @@ function CreateEvent() {
           {formData.date && formData.registrationDeadline && formData.registrationDeadline > formData.date &&
           <small style={{ color: 'red' }}>Registration deadline cannot be after event start date</small>
           }
+
+          <div style={{ marginTop: '8px' }}>
+            <label style={{ display: 'block' }}>Registration Deadline Time</label>
+            <input
+              type="time"
+              name="registrationDeadlineTime"
+              value={formData.registrationDeadlineTime}
+              onChange={handleChange}
+              max={formData.time || undefined} />
+
+            {formData.date && formData.registrationDeadline && formData.registrationDeadlineTime && (new Date(`${formData.registrationDeadline}T${formData.registrationDeadlineTime}`) > new Date(`${formData.date}T${formData.time || '00:00'}`)) &&
+            <small style={{ color: 'red' }}>Registration deadline cannot be after event start date/time</small>
+            }
+          </div>
         </div>
 
         
@@ -402,76 +429,36 @@ function CreateEvent() {
             <div className="form-row">
               <div className="form-group">
                 <label>Price (₹) *</label>
-                <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleChange}
-                required={formData.eventType === 'Merchandise'}
-                min="0"
-                step="0.01"
-                placeholder="Enter price" />
-
+                <input type="number" name="price" value={formData.price} onChange={handleChange}
+                  required={formData.eventType === 'Merchandise'} min="0" step="0.01" placeholder="Enter price" />
               </div>
-
               <div className="form-group">
                 <label>Stock Quantity *</label>
-                <input
-                type="number"
-                name="stock"
-                value={formData.stock}
-                onChange={handleChange}
-                required={formData.eventType === 'Merchandise'}
-                min="0"
-                placeholder="Enter available stock" />
-
+                <input type="number" name="stock" value={formData.stock} onChange={handleChange}
+                  required={formData.eventType === 'Merchandise'} min="0" placeholder="Enter available stock" />
               </div>
             </div>
-
             <div className="form-row">
               <div className="form-group">
                 <label>Purchase Limit Per Participant *</label>
-                <input
-                type="number"
-                name="purchaseLimit"
-                value={formData.purchaseLimit}
-                onChange={handleChange}
-                required
-                min="1"
-                placeholder="e.g., 1" />
-
+                <input type="number" name="purchaseLimit" value={formData.purchaseLimit} onChange={handleChange}
+                  required min="1" placeholder="e.g., 1" />
               </div>
             </div>
-
             <div className="form-group">
               <label>Available Sizes (comma-separated)</label>
-              <input
-              type="text"
-              name="sizes"
-              value={formData.sizes}
-              onChange={handleChange}
-              placeholder="e.g., S, M, L, XL" />
-
+              <input type="text" name="sizes" value={formData.sizes} onChange={handleChange}
+                placeholder="e.g., S, M, L, XL" />
             </div>
             <div className="form-group">
               <label>Available Colors (comma-separated)</label>
-              <input
-              type="text"
-              name="colors"
-              value={formData.colors}
-              onChange={handleChange}
-              placeholder="e.g., Black, White, Blue" />
-
+              <input type="text" name="colors" value={formData.colors} onChange={handleChange}
+                placeholder="e.g., Black, White, Blue" />
             </div>
             <div className="form-group">
               <label>Available Variants (comma-separated)</label>
-              <input
-              type="text"
-              name="variants"
-              value={formData.variants}
-              onChange={handleChange}
-              placeholder="e.g., Hoodie, T-Shirt" />
-
+              <input type="text" name="variants" value={formData.variants} onChange={handleChange}
+                placeholder="e.g., Hoodie, T-Shirt" />
             </div>
           </>
         }

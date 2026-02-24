@@ -6,6 +6,8 @@ const {
   updateRegistrationStatus,
   scanQRAndMarkAttendance,
   getAttendanceReport,
+  manualAttendanceOverride,
+  getAuditLogs,
   getProfile,
   updateProfile,
   requestPasswordReset,
@@ -22,6 +24,8 @@ router.get('/events/:eventId/participants', getEventParticipants);
 router.put('/registrations/:registrationId/status', updateRegistrationStatus);
 router.post('/attendance/scan', scanQRAndMarkAttendance);
 router.get('/events/:eventId/attendance', getAttendanceReport);
+router.put('/attendance/override', manualAttendanceOverride);
+router.get('/events/:eventId/audit-logs', getAuditLogs);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);
 router.post('/password-reset-request', requestPasswordReset);

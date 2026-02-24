@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,11 +23,21 @@ function EventDetails() {
   const [formResponses, setFormResponses] = useState({});
   const [formFiles, setFormFiles] = useState({});
   const [merch, setMerch] = useState({ size: '', color: '', variant: '', quantity: 1 });
+  const [teamName, setTeamName] = useState('');
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [joiningTeam, setJoiningTeam] = useState(false);
 
 
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState({ rating: 5, comments: '' });
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const [forumMessages, setForumMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const [postingMessage, setPostingMessage] = useState(false);
+  const pollRef = useRef(null);
 
   const fetchEvent = useCallback(async () => {
     try {
@@ -37,8 +47,6 @@ function EventDetails() {
       setIsRegistered(payload.isRegistered);
       setHasAttended(payload.hasAttended);
       setMyTicket(payload.myTicket || null);
-
-
       const ev = payload.event;
       if (ev?.eventType === 'Merchandise') {
         const sizes = Array.isArray(ev.itemDetails?.sizes) ? ev.itemDetails.sizes : [];
@@ -95,33 +103,14 @@ function EventDetails() {
         }
       }
 
-
       let merchandiseDetails = {};
       if (event?.eventType === 'Merchandise') {
-        const purchaseLimit = Number(event.purchaseLimit || 1);
         const qty = Number(merch.quantity || 1);
-        if (!Number.isFinite(qty) || qty <= 0) {
-          toast.error('Invalid quantity');
-          setRegistering(false);
-          return;
-        }
-        if (Number.isFinite(purchaseLimit) && purchaseLimit > 0 && qty > purchaseLimit) {
-          toast.error(`You can purchase at most ${purchaseLimit} item(s)`);
-          setRegistering(false);
-          return;
-        }
-        if ((event.stockQuantity ?? 0) < qty) {
-          toast.error('Not enough stock available');
-          setRegistering(false);
-          return;
-        }
-
-        merchandiseDetails = {
-          size: merch.size,
-          color: merch.color,
-          variant: merch.variant,
-          quantity: qty
-        };
+        const limit = Number(event.purchaseLimit || 1);
+        if (!Number.isFinite(qty) || qty <= 0) { toast.error('Invalid quantity'); setRegistering(false); return; }
+        if (limit > 0 && qty > limit) { toast.error(`Max ${limit} item(s)`); setRegistering(false); return; }
+        if ((event.stockQuantity ?? 0) < qty) { toast.error('Not enough stock'); setRegistering(false); return; }
+        merchandiseDetails = { size: merch.size, color: merch.color, variant: merch.variant, quantity: qty };
       }
 
       const hasFiles = Object.keys(formFiles).length > 0;
@@ -170,6 +159,60 @@ function EventDetails() {
       toast.error(error.response?.data?.message || 'Error submitting feedback');
     } finally {
       setSubmittingFeedback(false);
+    }
+  };
+
+  const fetchForumMessages = useCallback(async () => {
+    try {
+      const res = await axios.get(`/api/forum/events/${eventId}/messages`);
+      setForumMessages(res.data.messages || []);
+    } catch (err) {
+      console.error('Forum fetch error:', err);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (isRegistered) {
+      fetchForumMessages();
+      pollRef.current = setInterval(fetchForumMessages, 8000);
+      return () => clearInterval(pollRef.current);
+    }
+  }, [isRegistered, fetchForumMessages]);
+
+  const handlePostMessage = async () => {
+    if (!newMessage.trim()) return;
+    setPostingMessage(true);
+    try {
+      await axios.post(`/api/forum/events/${eventId}/messages`, {
+        content: newMessage.trim(),
+        parentMessage: replyTo
+      });
+      setNewMessage('');
+      setReplyTo(null);
+      fetchForumMessages();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error posting message');
+    } finally {
+      setPostingMessage(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Delete this message?')) return;
+    try {
+      await axios.delete(`/api/forum/messages/${messageId}`);
+      fetchForumMessages();
+    } catch (err) {
+      toast.error('Error deleting message');
+    }
+  };
+
+  const handleReact = async (messageId, emoji) => {
+    try {
+      await axios.post(`/api/forum/messages/${messageId}/react`, { emoji });
+      fetchForumMessages();
+    } catch (err) {
+      toast.error('Error reacting');
     }
   };
 
@@ -383,7 +426,7 @@ function EventDetails() {
                 {sizes.length > 0 &&
             <div className="form-group">
                     <label>Size *</label>
-                    <select value={merch.size} onChange={(e) => setMerch((prev) => ({ ...prev, size: e.target.value }))} required>
+                    <select value={merch.size} onChange={(e) => setMerch((prev) => ({ ...prev, size: e.target.value }))}>
                       <option value="">Select size</option>
                       {sizes.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
@@ -392,7 +435,7 @@ function EventDetails() {
                 {colors.length > 0 &&
             <div className="form-group">
                     <label>Color *</label>
-                    <select value={merch.color} onChange={(e) => setMerch((prev) => ({ ...prev, color: e.target.value }))} required>
+                    <select value={merch.color} onChange={(e) => setMerch((prev) => ({ ...prev, color: e.target.value }))}>
                       <option value="">Select color</option>
                       {colors.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -401,25 +444,19 @@ function EventDetails() {
                 {variants.length > 0 &&
             <div className="form-group">
                     <label>Variant *</label>
-                    <select value={merch.variant} onChange={(e) => setMerch((prev) => ({ ...prev, variant: e.target.value }))} required>
+                    <select value={merch.variant} onChange={(e) => setMerch((prev) => ({ ...prev, variant: e.target.value }))}>
                       <option value="">Select variant</option>
                       {variants.map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </div>
             }
-
                 <div className="form-group">
                   <label>Quantity *</label>
-                  <input
-                type="number"
-                min="1"
-                max={Number(event.purchaseLimit || 1)}
-                value={merch.quantity}
-                onChange={(e) => setMerch((prev) => ({ ...prev, quantity: e.target.value }))}
-                required />
-
+                  <input type="number" min="1" max={Number(event.purchaseLimit || 1)}
+                    value={merch.quantity}
+                    onChange={(e) => setMerch((prev) => ({ ...prev, quantity: e.target.value }))} required />
                   <small style={{ color: '#6c757d' }}>
-                    Limit: {event.purchaseLimit || 1} • Available stock: {event.stockQuantity ?? 0}
+                    Limit: {event.purchaseLimit || 1} &bull; Stock: {event.stockQuantity ?? 0}
                   </small>
                 </div>
               </div>
@@ -433,6 +470,60 @@ function EventDetails() {
 
               {registering ? 'Registering...' : 'Register Now'}
             </button>
+            {event.eventType === 'Hackathon' && (
+              <div style={{ marginTop: 18, paddingTop: 12, borderTop: '1px solid #e9ecef' }}>
+                <h4 style={{ marginBottom: 10 }}>Team Options</h4>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Create team name"
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                    style={{ flex: 1 }} />
+                  <button
+                    className="btn btn-outline-primary"
+                    disabled={creatingTeam || !teamName.trim()}
+                    onClick={async () => {
+                      setCreatingTeam(true);
+                      try {
+                        const res = await axios.post('/api/teams', { teamName, eventId });
+                        toast.success('Team created — invite code: ' + (res.data.data?.inviteCode || ''));
+                        setTeamName('');
+                        fetchEvent();
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || 'Error creating team');
+                      } finally { setCreatingTeam(false); }
+                    }}>
+                    {creatingTeam ? 'Creating...' : 'Create Team'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Enter invite code to join"
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value)}
+                    style={{ flex: 1 }} />
+                  <button
+                    className="btn btn-outline-success"
+                    disabled={joiningTeam || !inviteCodeInput.trim()}
+                    onClick={async () => {
+                      setJoiningTeam(true);
+                      try {
+                        await axios.post('/api/teams/join', { inviteCode: inviteCodeInput.trim() });
+                        toast.success('Join request sent');
+                        setInviteCodeInput('');
+                        fetchEvent();
+                      } catch (err) {
+                        toast.error(err.response?.data?.message || 'Error joining team');
+                      } finally { setJoiningTeam(false); }
+                    }}>
+                    {joiningTeam ? 'Joining...' : 'Join Team'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         }
 
@@ -499,6 +590,95 @@ function EventDetails() {
                 </div>
               </form>
           }
+          </div>
+        }
+
+        {isRegistered &&
+        <div style={{ marginTop: '30px' }}>
+            <h2 style={{ marginBottom: '15px' }}>Discussion Forum</h2>
+            <div style={{ marginBottom: '15px' }}>
+              {replyTo && (
+                <div style={{ padding: '6px 10px', backgroundColor: '#e9ecef', borderRadius: '4px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small>Replying to a message...</small>
+                  <button className="btn btn-sm" onClick={() => setReplyTo(null)} style={{ padding: '2px 8px' }}>✕</button>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePostMessage()}
+                  placeholder={replyTo ? 'Write a reply...' : 'Write a message...'}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-primary" disabled={postingMessage || !newMessage.trim()} onClick={handlePostMessage}>
+                  {postingMessage ? 'Sending...' : 'Send'}
+                </button>
+              </div>
+            </div>
+
+            {forumMessages.length === 0 ? (
+              <p style={{ color: '#6c757d', textAlign: 'center', padding: '20px' }}>No messages yet. Start the conversation!</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {forumMessages.map((msg) => (
+                  <div key={msg._id} style={{
+                    padding: '12px',
+                    backgroundColor: msg.isPinned ? '#fff3cd' : msg.isAnnouncement ? '#cce5ff' : '#f8f9fa',
+                    borderRadius: '8px',
+                    borderLeft: msg.isPinned ? '4px solid #ffc107' : msg.isAnnouncement ? '4px solid #007bff' : 'none'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '14px' }}>
+                        {msg.userId?.role === 'organizer' ? (msg.userId?.organizerName || 'Organizer') : `${msg.userId?.firstName || ''} ${msg.userId?.lastName || ''}`}
+                        {msg.userId?.role === 'organizer' && <span style={{ color: '#007bff', marginLeft: '6px', fontSize: '11px' }}>ORGANIZER</span>}
+                        {msg.isPinned && <span style={{ color: '#ffc107', marginLeft: '6px', fontSize: '11px' }}>📌 PINNED</span>}
+                        {msg.isAnnouncement && <span style={{ color: '#007bff', marginLeft: '6px', fontSize: '11px' }}>📢 ANNOUNCEMENT</span>}
+                      </strong>
+                      <small style={{ color: '#6c757d' }}>{new Date(msg.createdAt).toLocaleString()}</small>
+                    </div>
+                    <p style={{ margin: '0 0 8px 0' }}>{msg.content}</p>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button onClick={() => handleReact(msg._id, '👍')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}>
+                        👍 {msg.reactions?.filter((r) => r.emoji === '👍').length || 0}
+                      </button>
+                      <button onClick={() => setReplyTo(msg._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#007bff' }}>
+                        Reply
+                      </button>
+                      <button onClick={() => handleDeleteMessage(msg._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
+                        Delete
+                      </button>
+                    </div>
+
+                    {msg.replies && msg.replies.length > 0 && (
+                      <div style={{ marginTop: '10px', paddingLeft: '16px', borderLeft: '2px solid #dee2e6' }}>
+                        {msg.replies.map((reply) => (
+                          <div key={reply._id} style={{ padding: '8px', marginBottom: '6px', backgroundColor: '#fff', borderRadius: '4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '13px' }}>
+                                {reply.userId?.role === 'organizer' ? (reply.userId?.organizerName || 'Organizer') : `${reply.userId?.firstName || ''} ${reply.userId?.lastName || ''}`}
+                                {reply.userId?.role === 'organizer' && <span style={{ color: '#007bff', marginLeft: '4px', fontSize: '10px' }}>ORGANIZER</span>}
+                              </strong>
+                              <small style={{ color: '#6c757d' }}>{new Date(reply.createdAt).toLocaleString()}</small>
+                            </div>
+                            <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>{reply.content}</p>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button onClick={() => handleReact(reply._id, '👍')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px' }}>
+                                👍 {reply.reactions?.filter((r) => r.emoji === '👍').length || 0}
+                              </button>
+                              <button onClick={() => handleDeleteMessage(reply._id)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', color: '#dc3545' }}>
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         }
       </div>

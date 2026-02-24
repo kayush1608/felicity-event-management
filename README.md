@@ -89,29 +89,34 @@ A comprehensive event management system built with the MERN stack for managing c
 - Request status tracking and history
 - Email notifications
 
-✅ **2. Real-Time Discussion Forum (6 Marks - Implemented as Feedback System)**
-- Anonymous feedback submission for attended events
-- Star rating (1-5) with comments
-- Organizer view with aggregated ratings
-- Filter by rating
-- Export feedback data
+✅ **2. Real-Time Discussion Forum (6 Marks)**
+- Per-event threaded discussion board for registered participants and organizers
+- Threaded replies with parent-child message structure
+- Organizer moderation: pin/unpin messages, delete any message, post announcements
+- Real-time polling (8-second auto-refresh)
+- Emoji reactions on messages
+- Announcement and pinned message highlighting
 
 #### Tier C Features (Choose 1 - 2 marks each)
 ✅ **1. Anonymous Feedback System (2 Marks)**
-- Post-event feedback submission
-- Rating and comments
-- Aggregated statistics for organizers
-- Export functionality
+- Post-event anonymous feedback for participants who attended
+- Star rating (1-5) with comments
+- Organizer view with aggregated ratings and feedback list
+- Export feedback data as CSV
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React.js (or Next.js)
+- **Frontend**: React.js (Create React App)
 - **Backend**: Node.js + Express.js
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT + bcrypt
-- **Email**: Nodemailer
-- **QR Codes**: qrcode library
+- **Database**: MongoDB with Mongoose ODM (MongoDB Atlas)
+- **Authentication**: JWT (jsonwebtoken) + bcryptjs
+- **Email**: Nodemailer (Gmail SMTP)
+- **QR Codes**: qrcode (generation) + qr-scanner (frontend scanning)
 - **File Upload**: Multer
+- **Bot Protection**: Cloudflare Turnstile CAPTCHA
+- **HTTP Client**: Axios
+- **Notifications**: react-toastify
+- **Routing**: react-router-dom v6
 
 ## 📦 Installation
 
@@ -204,6 +209,22 @@ The frontend will run on `http://localhost:3000`
 - `PUT /api/organizer/profile` - Update profile
 - `POST /api/organizer/password-reset-request` - Request password reset
 - `GET /api/organizer/events/:eventId/feedback` - Get event feedback
+- `PUT /api/organizer/attendance/override` - Manual attendance override
+- `GET /api/organizer/events/:eventId/audit-logs` - Get audit logs
+
+### Forum (Discussion)
+- `GET /api/forum/events/:eventId/messages` - Get event messages (threaded)
+- `POST /api/forum/events/:eventId/messages` - Post message or announcement
+- `DELETE /api/forum/messages/:messageId` - Delete message
+- `PUT /api/forum/messages/:messageId/pin` - Toggle pin on message
+- `POST /api/forum/messages/:messageId/react` - React to message
+
+### Teams
+- `POST /api/teams/create` - Create hackathon team
+- `POST /api/teams/join` - Join team by invite code
+- `GET /api/teams/my-teams` - Get user's teams
+- `GET /api/teams/:teamId` - Get team details
+- `DELETE /api/teams/:teamId/leave` - Leave team
 
 ### Admin
 - `GET /api/admin/dashboard` - Get dashboard
@@ -245,11 +266,11 @@ After first run, an admin account is automatically created:
 
 1. **Organizer Password Reset Workflow (6 marks)**: Important security feature allowing organizers to reset passwords through admin approval, maintaining system security while providing recovery options.
 
-2. **Anonymous Feedback System (6 marks)**: Enables participants to provide honest feedback post-event, helping organizers improve future events. Aggregated statistics provide valuable insights.
+2. **Real-Time Discussion Forum (6 marks)**: Per-event discussion boards with threading enable participants to communicate, ask questions, and share updates. Organizer moderation tools (pin, delete, announcements) maintain quality.
 
 ### Tier C - Selected Feature:
 
-1. **Anonymous Feedback System (2 marks)**: Enhanced the feedback system with comprehensive analytics, rating filters, and export functionality.
+1. **Anonymous Feedback System (2 marks)**: Allows participants who attended events to submit anonymous star-rating and comment feedback, with organizer-side aggregation and CSV export.
 
 **Total Advanced Features: 30 marks** ✅
 
@@ -261,6 +282,8 @@ After first run, an admin account is automatically created:
 - **Team**: Hackathon teams with invite system
 - **PasswordResetRequest**: Password reset workflow
 - **Feedback**: Anonymous event feedback
+- **Message**: Discussion forum messages with threading
+- **AuditLog**: Attendance override audit trail
 
 ## 🚢 Deployment Instructions
 
